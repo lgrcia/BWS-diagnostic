@@ -8,20 +8,20 @@ It has been written in **Python** and is available both as a **library** and use
 
 #### Introduction
 
-- [Home](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Home)
-- [Installation and usage](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Installation%20and%20usage)
+- [Home](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Home.md)
+- [Installation and usage](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Installation%20and%20usage.md)
 
 #### Processing
 
-- [Complete calibration processing](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Complete%20calibration%20processing)
+- [Complete calibration processing](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Complete%20calibration%20processing.md)
 - [Single calibration analysis](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Single%20calibration%20analysis)
-- [Multiple calibration analysis](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Multiple%20calibration%20analysis)
-- [Scan raw data analysis](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Scan%20raw%20data%20analysis)
+- [Multiple calibration analysis](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Multiple%20calibration%20analysis.md)
+- [Scan raw data analysis](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Scan%20raw%20data%20analysis.md)
 
 #### Algorithm and parameters
 
-- [Algorithm and parameters](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Algorithm%20and%20parameters)
-- [Perspectives](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Perspectives)
+- [Algorithm and parameters](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Algorithm%20and%20parameters.md)
+- [Perspectives](https://github.com/LionelGarcia/BWS-diagnostic/blob/master/wiki/Perspectives.md)
 
 
 
