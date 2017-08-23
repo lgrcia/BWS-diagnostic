@@ -9,8 +9,6 @@ It has been written in **Python** and is available both as a **library** and use
 #### Introduction
 
 * [Home](Home)
-
-
 * [Installation and usage](Installation-and-usage)
 
 #### Processing
@@ -23,7 +21,6 @@ It has been written in **Python** and is available both as a **library** and use
 #### Algorithm and parameters
 
 * [Algorithm and parameters](Algorithm-and-parameters)
-
 * [Perspectives](Perspectives)
 
 

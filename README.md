@@ -8,22 +8,20 @@ It has been written in **Python** and is available both as a **library** and use
 
 #### Introduction
 
-- [Home](Home)
-
-
-- [Installation and usage](Installation-and-usage)
+- [Home](wiki/Home)
+- [Installation and usage](wiki/Installation-and-usage)
 
 #### Processing
 
-- [Complete calibration processing](Complete-calibration-processing)
-- [Single calibration analysis](Single-calibration-analysis)
-- [Multiple calibration analysis](Multiple-calibration-analysis)
-- [Scan raw data analysis](Scan-raw-data-analysis)
+- [Complete calibration processing](wiki/Complete-calibration-processing)
+- [Single calibration analysis](wiki/Single-calibration-analysis)
+- [Multiple calibration analysis](wiki/Multiple-calibration-analysis)
+- [Scan raw data analysis](wiki/Scan-raw-data-analysis)
 
 #### Algorithm and parameters
 
-- [Algorithm and parameters](Algorithm-and-parameters)
-- [Perspectives](Perspectives)
+- [Algorithm and parameters](wiki/Algorithm-and-parameters)
+- [Perspectives](wiki/Perspectives)
 
 
 
