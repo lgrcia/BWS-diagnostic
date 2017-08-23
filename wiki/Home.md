@@ -1,4 +1,4 @@
-# Overview<img src="images/cern_logo.jpg" width="100" align=right>
+# BWS-diagnostic<img src="images/cern_logo.jpg" width="100" align=right>
 
 <img src="images/BWS_application_illustration.jpg" width="800" align=center>
 
