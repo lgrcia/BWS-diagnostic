@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.stats import norm
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 
 import lib.utils as utils
 from lib import diagnostic_tools as mplt
@@ -55,8 +56,9 @@ def process_position(data, parameter_file, StartTime, showplot=False, filename=N
     prominence = eval(config.get('OPS processing parameters', 'prominence'))
     camelback_threshold = eval(config.get('OPS processing parameters', 'camelback_threshold'))
     OPS_processing_filter_freq = eval(config.get('OPS processing parameters', 'OPS_processing_filter_freq'))
-
     REMP_reference_threshold = eval(config.get('OPS processing parameters', 'REMP_reference_threshold'))
+    References_Timming = eval(config.get('OPS processing parameters','References_Timming'))
+
 
     AngularIncrement = 2 * np.pi / SlitsperTurn
 
@@ -150,12 +152,22 @@ def process_position(data, parameter_file, StartTime, showplot=False, filename=N
     # ==========================================================================
     # Alignment to First reference and Storage
     # ==========================================================================
-    Offset = 100
+
+    if StartTime > References_Timming[0]/1000 :
+        Rtiming = References_Timming[1]
+    else:
+        Rtiming = References_Timming[0]
+
+    Offset = np.where(Data_Time[0:Data_Time.size - 1] + StartTime > (Rtiming/1000))[0][0]
+    #print(References_Timming[0] / 1000)
+    #print(Data_Time[Offset])
+    #Offset = 100
 
     _IndexRef1 = Offset + np.where(RelDistr[Offset:LengthMin - Offset] > rdcp[1])[0]
+    IndexRef1 = _IndexRef1[0]
 
-    if len(np.where(A[_IndexRef1 + 1] > REMP_reference_threshold)[0]) > 1:
-        IndexRef1 = _IndexRef1[np.where(A[_IndexRef1 + 1] > 0.35)][0]
+    #if len(np.where(A[_IndexRef1 + 1] > REMP_reference_threshold)[0]) > 1:
+    #    IndexRef1 = _IndexRef1[np.where(A[_IndexRef1 + 1] > 0.35)][0]
 
     # else:
     #     try:
@@ -164,10 +176,10 @@ def process_position(data, parameter_file, StartTime, showplot=False, filename=N
     #     except:
     # IndexRef1 = 0
 
-    else:
-        IndexRef1 = 0
-        print(filename)
-        print(A[_IndexRef1], A[_IndexRef1 + 1])
+    #else:
+    #    IndexRef1 = 0
+    #    print(filename)
+    #    print(A[_IndexRef1], A[_IndexRef1 + 1])
 
 
     # print(Data_Time[IndexRef1] + StartTime)
@@ -204,7 +216,8 @@ def process_position(data, parameter_file, StartTime, showplot=False, filename=N
                 1e3 * StartTime + 1e3 * locs_up * 1 / sampling_frequency, pck_up,
                 1e3 * StartTime + 1e3 * locs_dwn * 1 / sampling_frequency, pck_dwn,
                 1e3 * StartTime + 1e3 * Crosingpos[0][0:A.size] * 1 / sampling_frequency, A,
-                threshold_reference / max_data]
+                threshold_reference / max_data,
+                1e3 * StartTime + 1e3 * Crosingpos[0][IndexRef1] * (1 / sampling_frequency)]
 
     else:
         return Data
@@ -212,8 +225,8 @@ def process_position(data, parameter_file, StartTime, showplot=False, filename=N
 
 def find_occlusions(data, IN=True, diagnostic_plot=False, StartTime=0, return_processing=False):
     """
-    TO DO
-    """
+      TO DO
+      """
 
     # Cutting of the first part wich can contain parasite peaks
     #    beginingoff = lambda x: x[int(x.size/4)::]
@@ -228,40 +241,77 @@ def find_occlusions(data, IN=True, diagnostic_plot=False, StartTime=0, return_pr
 
     or_data = data
 
-    data = np.abs(-data)
-    filtered_data = utils.butter_lowpass_filter(data, peaks_detection_filter_freq, sampling_frequency, order=5)
-    pcks = utils.peakdet(filtered_data, np.amax(data) / 4)[0]
-    pcks = np.transpose(pcks)
-
+    # Modif by Jose (for compatibility when not using Photodiode):
+    # ------------------------------------------------------------
     try:
-        locs = pcks[0]
+        data = np.abs(-data)
+        filtered_data = utils.butter_lowpass_filter(data, peaks_detection_filter_freq, sampling_frequency, order=5)
+
+        # Modif by Jose (to avoid false peaks detection)
+        margin = 1e-3  # temporal window around max in seconds
+
+        valmax = np.amax(filtered_data)
+        #print(valmax)
+
+        indexvalmax = np.where(filtered_data == valmax)[0][0]
+        #print(indexvalmax)
+
+        indexleft = indexvalmax - np.int((margin / 2) * sampling_frequency)
+        indexright = indexvalmax + np.int((margin / 2) * sampling_frequency)
+
+        #print(indexleft)
+        #print(indexright)
+
+        filtered_data_short = filtered_data[indexleft:indexright]
+        # -----
+
+        pcks = utils.peakdet(filtered_data_short, valmax / 4)[0]
+        pcks = np.transpose(pcks)
+
+        # Modif by Jose:
+        # -------------
+
+        # try:
+        locs = pcks[0] + indexleft
+        # except:
+        #    plt.figure()
+        #    plt.plot(filtered_data)
+        #    plt.show()
+        #    return -1
+
+        # -------------
+
+        pcks = pcks[1]
+
+        sorted_indexes = np.argsort(locs)
+
+        if IN is False:
+            sorted_indexes = sorted_indexes[::-1]
+
+        locs = locs[sorted_indexes].astype(int)  # + int(data.size/4)
+
+        if diagnostic_plot == True:
+            plt.figure()
+            mplt.nice_style()
+            plt.plot(StartTime + 20e-6 * np.arange(0, filtered_data.size), filtered_data)
+            plt.plot(StartTime + 20e-6 * locs, filtered_data[locs], '.')
+            plt.show(block=False)
+
+        if return_processing is True:
+
+            return [StartTime + 1 / sampling_frequency * locs[0:2], or_data[locs[0:2]],
+                    StartTime + 1 / sampling_frequency * np.arange(0, filtered_data.size), -filtered_data]
+
+        else:
+            return locs[0:2]
+
     except:
-        plt.figure()
-        plt.plot(filtered_data)
-        plt.show()
-        return -1
-
-    pcks = pcks[1]
-
-    sorted_indexes = np.argsort(locs)
-
-    if IN is False:
-        sorted_indexes = sorted_indexes[::-1]
-
-    locs = locs[sorted_indexes].astype(int)  # + int(data.size/4)
-
-    if diagnostic_plot == True:
-        plt.figure()
-        mplt.nice_style()
-        plt.plot(StartTime + 20e-6 * np.arange(0, filtered_data.size), filtered_data)
-        plt.plot(StartTime + 20e-6 * locs, filtered_data[locs], '.')
-        plt.show(block=False)
-
-    if return_processing is True:
-        return [StartTime + 1/sampling_frequency * locs[0:2], or_data[locs[0:2]]]
-
-    else:
-        return locs[0:2]
+        print('Unable to find occlusions')
+        locs = np.asarray([460331, 464319])
+        locs = locs[0:2].astype(int)
+        return [StartTime + 1 / sampling_frequency * locs[0:2], or_data[locs[0:2]],
+                StartTime + 1 / sampling_frequency * np.arange(0, filtered_data.size), -filtered_data]
+        # ------------------------------------------------------------
 
 
 def process_complete_calibration(raw_data_folder, destination_folder):
@@ -269,7 +319,10 @@ def process_complete_calibration(raw_data_folder, destination_folder):
     convert_raw_data = utils.CreateRawDataFolder(raw_data_folder, destination_folder)
     convert_raw_data.run()
 
-    raw_data_processing = ProcessRawData(destination_folder, destination_folder)
+    raw_data_processing = ProcessRawData(destination_folder + '/RAW_DATA/RAW_OUT', destination_folder)
+    raw_data_processing.run()
+
+    raw_data_processing = ProcessRawData(destination_folder + '/RAW_DATA/RAW_IN', destination_folder)
     raw_data_processing.run()
 
     utils.create_processed_data_folder(raw_data_folder, destination_folder, force_overwrite='y')
@@ -375,11 +428,14 @@ class ProcessRawData(QtCore.QThread):
         OUT_55rs_range = eval(config.get('OPS processing parameters', '55rs_OUT_range'))
         OUT_133rs_range = eval(config.get('OPS processing parameters', '133rs_OUT_range'))
         sampling_frequency = eval(config.get('OPS processing parameters', 'sampling_frequency'))
+        process_occlusions = eval(config.get('OPS processing parameters','Process_Occlusions'))
 
+        #mat_files, dir_path = utils.mat_list_from_folder(self.raw_data_folder)
+        mat_files = utils.mat_list_from_folder_sorted(self.raw_data_folder)
 
-        mat_files, dir_path = utils.mat_list_from_folder(self.raw_data_folder)
+        #mat = sio.loadmat(dir_path + '/' + mat_files[0])
+        mat = sio.loadmat(mat_files[0])
 
-        mat = sio.loadmat(dir_path + '/' + mat_files[0])
         speed = mat['speed'][0]
         INorOUT = mat['INorOUT'][0]
 
@@ -413,74 +469,97 @@ class ProcessRawData(QtCore.QThread):
         i = 0
 
         for mat_file in tqdm(mat_files):
+            try:
+                if self.verbose is True:
+                    print(mat_file)
 
-            if self.verbose is True:
-                print(mat_file)
+                self.notifyProgress.emit(int(i * 100 / len(mat_files)))
+                time.sleep(0.1)
 
-            self.notifyProgress.emit(int(i * 100 / len(mat_files)))
-            time.sleep(0.1)
+                self.notifyFile.emit(mat_file)
+                time.sleep(0.1)
 
-            self.notifyFile.emit(mat_file)
-            time.sleep(0.1)
+                #mat = sio.loadmat(dir_path + '/' + mat_file)
+                mat = sio.loadmat(mat_file)
 
-            mat = sio.loadmat(dir_path + '/' + mat_file)
-            _data_SA = mat['data_SA'][0]
-            _data_SB = mat['data_SB'][0]
-            _data_PD = mat['data_PD'][0]
+                _data_SA = mat['data_SA'][0]
+                _data_SB = mat['data_SB'][0]
+                _data_PD = mat['data_PD'][0]
 
-            Data_SA = process_position(_data_SA, utils.resource_path('data/parameters.cfg'), StartTime, showplot=0, filename=mat_file)
-            Data_SB = process_position(_data_SB, utils.resource_path('data/parameters.cfg'), StartTime, showplot=0, filename=mat_file)
+                Data_SA = process_position(_data_SA, utils.resource_path('data/parameters.cfg'), StartTime, showplot=0, filename=mat_file)
+                Data_SB = process_position(_data_SB, utils.resource_path('data/parameters.cfg'), StartTime, showplot=0, filename=mat_file)
 
-            Data_SB_R = utils.resample(Data_SB, Data_SA)
-            Data_SA_R = utils.resample(Data_SA, Data_SB)
+                Data_SB_R = utils.resample(Data_SB, Data_SA)
+                Data_SA_R = utils.resample(Data_SA, Data_SB)
 
-            # Eccentricity from OPS processing and saving in list
-            _eccentricity = np.subtract(Data_SA[1], Data_SB_R[1]) / 2
-            eccentricity.append(_eccentricity)
+                # Eccentricity from OPS processing and saving in list
+                _eccentricity = np.subtract(Data_SA[1], Data_SB_R[1]) / 2
+                eccentricity.append(_eccentricity)
 
-            _eccentricity_B = np.subtract(Data_SB[1], Data_SA_R[1]) / 2
+                _eccentricity_B = np.subtract(Data_SB[1], Data_SA_R[1]) / 2
 
-            Data_SA[1] = np.subtract(Data_SA[1], _eccentricity)
-            Data_SB[1] = np.subtract(Data_SB[1], _eccentricity_B)
-            Data_SB_R[1] = np.add(Data_SB_R[1], _eccentricity)
+                # Data is now uncorrected from eccentricity
+                #Data_SA[1] = np.subtract(Data_SA[1], _eccentricity)
+                #Data_SB[1] = np.subtract(Data_SB[1], _eccentricity_B)
+                #Data_SB_R[1] = np.add(Data_SB_R[1], _eccentricity)
 
-            # OPS data saving in list
-            angular_position_SA.append(Data_SA[1])
-            angular_position_SB.append(Data_SB[1])
+                # OPS data saving in list
+                angular_position_SA.append(Data_SA[1])
+                angular_position_SB.append(Data_SB[1])
 
-            # OPSA time saving in list
-            time_SA.append(Data_SA[0])
-            time_SB.append(Data_SB[0])
+                # OPSA time saving in list
+                time_SA.append(Data_SA[0])
+                time_SB.append(Data_SB[0])
 
-            # OPS speed processing and saving in list
-            _speed_SA = np.divide(np.diff(Data_SA[1]), np.diff(Data_SA[0]))
-            _speed_SB = np.divide(np.diff(Data_SB[1]), np.diff(Data_SB[0]))
-            speed_SA.append(_speed_SA)
-            speed_SB.append(_speed_SB)
+                # OPS speed processing and saving in list
+                _speed_SA = np.divide(np.diff(Data_SA[1]), np.diff(Data_SA[0]))
+                _speed_SB = np.divide(np.diff(Data_SB[1]), np.diff(Data_SB[0]))
+                speed_SA.append(_speed_SA)
+                speed_SB.append(_speed_SB)
 
-            # Finding of occlusions and saving into a list
-            _time_PD = StartTime + np.arange(0, _data_PD.size) * 1 / sampling_frequency
-            occlusions = find_occlusions(_data_PD, IN)
+                # Finding of occlusions and saving into a list
+                if process_occlusions is True:
+                    _time_PD = StartTime + np.arange(0, _data_PD.size) * 1 / sampling_frequency
+                    occlusions = find_occlusions(_data_PD, IN)
 
-            # if occlusions is -1:
-            #     log.log_no_peaks(mat_file, IN)
+                    # if occlusions is -1:
+                    #     log.log_no_peaks(mat_file, IN)
 
-            Data_SA_R = utils.resample(Data_SA, np.array([_time_PD, _data_PD]))
-            occ1 = Data_SA_R[1][int(occlusions[0])]
-            occ2 = Data_SA_R[1][int(occlusions[1])]
-            _occlusion = (occ2 - occ1) / 2 + occ1
+                    # Modified by Jose:
+                    # -----------------
 
-            test_range = np.array([0, np.pi])
+                    # -- Old Method --
+                    #Data_SA_R = utils.resample(Data_SA, np.array([_time_PD, _data_PD]))
+                    #occ1 = Data_SA_R[1][int(occlusions[0])]
+                    #occ2 = Data_SA_R[1][int(occlusions[1])]
 
-            # if _occlusion < test_range[0] or _occlusion > test_range[1]:
-            #     log.log_peaks_out_of_range(test_range, _occlusion, mat_file, IN)
+                    # -- New Method :Slightly faster --
+                    finterp = interp1d(Data_SA[0],Data_SA[1])
+                    occ1 = finterp(_time_PD[int(occlusions[0])])
+                    occ2 = finterp(_time_PD[int(occlusions[1])])
+                    # -----------------
 
-            occlusion_position.append(_occlusion)
+                    _occlusion = (occ2 - occ1) / 2 + occ1
+                else:
+                    _occlusion = StartTime + 0.02
 
-            # Laser position and scan number extraction from file name and saving in list
-            _laser_position, _scan_number = utils.find_scan_info(mat_file)
-            scan_number.append(int(_scan_number))
-            laser_position.append(float(_laser_position))
+                test_range = np.array([0, np.pi])
+
+                # if _occlusion < test_range[0] or _occlusion > test_range[1]:
+                #     log.log_peaks_out_of_range(test_range, _occlusion, mat_file, IN)
+
+                occlusion_position.append(_occlusion)
+
+                # Laser position and scan number extraction from file name and saving in list
+                _laser_position, _scan_number = utils.find_scan_info(mat_file)
+                scan_number.append(int(_scan_number))
+                laser_position.append(float(_laser_position))
+
+            except:
+
+                self.notifyState.emit("Error in file:" + mat_file)
+                self.notifyProgress.emit("Error in file:" + mat_file)
+                print("Error in file:" + mat_file)
 
             i += 1
 

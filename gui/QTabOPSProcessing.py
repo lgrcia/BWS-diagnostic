@@ -217,6 +217,11 @@ class plot(mplCanvas):
             ax1.plot(1e-3 * P[2], P[3], '.', markersize=2)
             ax1.plot(1e-3 * P[4], P[5], '.', markersize=2)
             ax1.plot(1e-3 * P[6], P[7], '-', linewidth=0.5, color=black)
+            # Added by Jose --> Visually identify references detection
+            refX = P[9]
+            refY = P[1][np.where(P[0] > P[9])[0][0]]
+            ax1.plot(1e-3 * refX, refY, '.', markersize=5, color = '#f93eed')
+            # ----
             ax1.set_title('OPS processing SA - IN', loc='left')
             ax1.set_xlabel('Time (s)')
             ax1.set_ylabel('Normalized amplitude')
@@ -231,6 +236,11 @@ class plot(mplCanvas):
             ax2.plot(1e-3 * P[2], P[3], '.', markersize=2)
             ax2.plot(1e-3 * P[4], P[5], '.', markersize=2)
             ax2.plot(1e-3 * P[6], P[7], '-', linewidth=0.5, color=black)
+            # Added by Jose --> Visually identify references detection
+            refX = P[9]
+            refY = P[1][np.where(P[0] > P[9])[0][0]]
+            ax2.plot(1e-3 * refX, refY, '.', markersize=5, color = '#f93eed')
+            # ----
             ax2.set_title('OPS processing SB - IN', loc='left')
             ax2.set_xlabel('Time (s)')
             ax2.set_ylabel('Normalized amplitude')
@@ -244,6 +254,11 @@ class plot(mplCanvas):
             ax3.plot(1e-3 * P[2], P[3], '.', markersize=2)
             ax3.plot(1e-3 * P[4], P[5], '.', markersize=2)
             ax3.plot(1e-3 * P[6], P[7], '-', linewidth=0.5, color=black)
+            # Added by Jose --> Visually identify references detection
+            refX = P[9]
+            refY = P[1][np.where(P[0] > P[9])[0][0]]
+            ax3.plot(1e-3 * refX, refY, '.', markersize=5, color = '#f93eed')
+            # ----
             ax3.set_title('OPS processing SA - OUT', loc='left')
             ax3.set_xlabel('Time (s)')
             ax3.set_ylabel('Normalized amplitude')
@@ -257,6 +272,11 @@ class plot(mplCanvas):
             ax4.plot(1e-3 * P[2], P[3], '.', markersize=2)
             ax4.plot(1e-3 * P[4], P[5], '.', markersize=2)
             ax4.plot(1e-3 * P[6], P[7], '-', linewidth=0.5, color=black)
+            # Added by Jose --> Visually identify references detection
+            refX = P[9]
+            refY = P[1][np.where(P[0] > P[9])[0][0]]
+            ax4.plot(1e-3 * refX, refY, '.', markersize=5, color = '#f93eed')
+            # ----
             ax4.set_title('OPS processing SB - OUT', loc='left')
             ax4.set_xlabel('Time (s)')
             ax4.set_ylabel('Normalized amplitude')
@@ -270,6 +290,7 @@ class plot(mplCanvas):
             ax5.set_xlabel('Time (s)')
             ax5.set_ylabel('a.u.')
             ax5.plot(self.t1, self.pd1, linewidth=1)
+            ax5.plot(occ_IN[2], occ_IN[3], linewidth=1)
             ax5.plot(occ_IN[0], occ_IN[1], '.', markersize=3, color=black)
             ax5.legend(['PD data', 'Detected occlusions'])
             prairie.style(ax5)
@@ -279,6 +300,7 @@ class plot(mplCanvas):
             ax6.set_xlabel('Time (s)')
             ax6.set_ylabel('a.u.')
             ax6.plot(self.t2, self.pd2, linewidth=1)
+            ax6.plot(occ_OUT[2], occ_OUT[3], linewidth=1)
             ax6.plot(occ_OUT[0], occ_OUT[1], '.', markersize=3, color=black)
             prairie.style(ax6)
 

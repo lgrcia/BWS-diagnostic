@@ -82,6 +82,7 @@ class QProcessedAnalysisTab(QWidget):
         self.CalibrationInformation.processed_data_selection.label_select_folder.selectionChanged.connect(self.set_PROCESSED_folder)
         self.CalibrationInformation.tdms_data_selection.label_select_folder.selectionChanged.connect(self.set_TDMS_folder)
         self.CalibrationInformation.processed_data_selection.button_select_folder.pressed.connect(self.actualise_all)
+
         self.FileDescriptionTable.table.clicked.connect(self.select_index)
 
         self.TabWidgetPlotting.tab_eccentricity.actualise_ax()

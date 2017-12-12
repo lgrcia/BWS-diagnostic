@@ -30,13 +30,17 @@ import configparser
 import scipy.io as sio
 
 from math import sqrt
+
 from matplotlib import mlab
+from matplotlib import gridspec
+from matplotlib import cm as cmx
+from matplotlib import pyplot as plt
+from matplotlib import colors as colors
+from matplotlib import patches as mpatches
+
 from nptdms import TdmsFile
 from scipy.stats import norm
-from matplotlib import gridspec
-from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
-from matplotlib import patches as mpatches
 from sklearn.metrics import mean_squared_error
 
 from lib import utils
@@ -175,13 +179,19 @@ def plot_calibration(folder_name, in_or_out, save=False, saving_name=None, compl
     for laser_pos in unique_laser_position:
         occlusion_position_mean.append(np.mean(occlusion_position[np.where(laser_position == laser_pos)[0]]))
 
+    occlusion_position_mean = np.asarray(occlusion_position_mean)
+
     off1 = [int(positions_for_fit[0] / 100 * unique_laser_position.size),
             int(positions_for_fit[1] / 100 * unique_laser_position.size)]
 
-    occlusion_position_mean = np.asarray(occlusion_position_mean)
     popt, pcov = curve_fit(utils.theoretical_laser_position, occlusion_position_mean[off1[0]:off1[1]],
-                           unique_laser_position[off1[0]:off1[1]], bounds=([-5, 80, 100], [5, 500, 500]))
-    theorical_laser_position_mean = utils.theoretical_laser_position(occlusion_position_mean, popt[0], popt[1], popt[2])
+                           unique_laser_position[off1[0]:off1[1]],bounds=([-5, 80, 100], [5, 500, 500]))
+
+    # POPT Values:
+    # -----------
+    # popt[0] = Phase , popt[1] = CenterOffset, popt[2] = ForkLength
+
+    theorical_laser_position_mean = utils.theoretical_laser_position(occlusion_position_mean,popt[0], popt[1], popt[2])
     theoretical_laser_position = utils.theoretical_laser_position(occlusion_position, popt[0], popt[1], popt[2])
     param = popt
 
@@ -191,6 +201,7 @@ def plot_calibration(folder_name, in_or_out, save=False, saving_name=None, compl
     laser_position = laser_position[off2[0]:off2[1]]
     theoretical_laser_position = theoretical_laser_position[off2[0]:off2[1]]
     occlusion_position = occlusion_position[off2[0]:off2[1]]
+
     residuals = laser_position - theoretical_laser_position
 
     if complete_residuals_curve is True:
@@ -284,6 +295,240 @@ def plot_calibration(folder_name, in_or_out, save=False, saving_name=None, compl
         plt.show(block=True)
 
 
+def plot_calibration_INOUT(folder_name, save=False, saving_name=None, complete_residuals_curve=False, separate=False, remove_sytematics=False, N=1, impose_parameters=False, inout_independent=False, parameters=[0,0,0]):
+    """
+    Plot the complete calibration figure of a measurement set
+
+    Args:
+        folder_name: folder containing PROCESSED_IN and PROCESSED_OUT, the processed data
+        in_or_out: 'IN' or 'OUT' analysis
+        save: save the figure as png (figure will not be displayed if True)
+        saving_name: Name of the png file (without extension)
+    """
+
+
+    filenameIN = 'PROCESSED_IN.mat'
+    colorIN = '#018BCF'
+
+    filenameOUT = 'PROCESSED_OUT.mat'
+    colorOUT = '#0EA318'
+
+    parameter_file = utils.resource_path('data/parameters.cfg')
+    config = configparser.RawConfigParser()
+    config.read(parameter_file)
+    positions_for_fit = eval(config.get('OPS processing parameters', 'positions_for_fit'))
+    positions_for_analysis = eval(config.get('OPS processing parameters', 'positions_for_analysis'))
+    tank_center = eval(config.get('OPS processing parameters', 'offset_center'))
+    SlitsperTurn = eval(config.get('OPS processing parameters', 'slits_per_turn'))
+
+    AngularIncrement = 2 * np.pi / SlitsperTurn
+
+    # IN
+    data_IN = sio.loadmat(folder_name + '/' + filenameIN, struct_as_record=False, squeeze_me=True)
+    occlusion_position_IN = data_IN['occlusion_position']
+    laser_position_IN = data_IN['laser_position']
+    scan_number_IN =  data_IN['scan_number']
+    idxs_IN = np.argsort(scan_number_IN)
+    scan_number_IN= scan_number_IN[idxs_IN]
+    occlusion_position_IN = occlusion_position_IN[idxs_IN]
+    laser_position_IN = laser_position_IN[idxs_IN]
+    laser_position_IN = -laser_position_IN + tank_center
+
+    #OUT
+    data_OUT = sio.loadmat(folder_name + '/' + filenameOUT, struct_as_record=False, squeeze_me=True)
+    occlusion_position_OUT = data_OUT['occlusion_position']
+    laser_position_OUT = data_OUT['laser_position']
+    scan_number_OUT = data_OUT['scan_number']
+    idxs_OUT = np.argsort(scan_number_OUT)
+    occlusion_position_OUT = occlusion_position_OUT[idxs_OUT]
+    laser_position_OUT = laser_position_OUT[idxs_OUT]
+    scan_number_OUT = scan_number_OUT[idxs_OUT]
+    laser_position_OUT = -laser_position_OUT + tank_center
+    occlusion_position_OUT = (np.pi / 2) + 8 * AngularIncrement - occlusion_position_OUT
+
+    unique_laser_position = np.unique(laser_position_IN)
+    occlusion_position_mean_IN = []
+    occlusion_position_mean_OUT = []
+
+    for laser_pos in unique_laser_position:
+        occlusion_position_mean_IN.append(np.mean(occlusion_position_IN[np.where(laser_position_IN == laser_pos)[0]]))
+        occlusion_position_mean_OUT.append(np.mean(occlusion_position_OUT[np.where(laser_position_OUT == laser_pos)[0]]))
+
+    occlusion_position_mean_IN = np.asarray(occlusion_position_mean_IN)
+    occlusion_position_mean_OUT = np.asarray(occlusion_position_mean_OUT)
+
+    occlusion_position_mean = np.concatenate((occlusion_position_mean_IN, occlusion_position_mean_OUT),axis=0)
+    UniqueLPIN= np.unique(laser_position_IN)
+    UniqueLPOUT = np.unique(laser_position_OUT)
+
+    if inout_independent is True:
+        popt_in, pcov = curve_fit(utils.theoretical_laser_position, occlusion_position_mean_IN,
+                               UniqueLPIN, bounds=([-5, 80, 100], [5, 500, 500]))
+        popt_out, pcov = curve_fit(utils.theoretical_laser_position, occlusion_position_mean_OUT,
+                               UniqueLPOUT, bounds=([-5, 80, 100], [5, 500, 500]))
+
+    else:
+        unique_laser_position_fit = np.concatenate((UniqueLPIN,UniqueLPOUT), axis=0)
+
+        if impose_parameters is True:
+            popt = parameters
+        else:
+            popt, pcov = curve_fit(utils.theoretical_laser_position, occlusion_position_mean,
+                               unique_laser_position_fit,bounds=([-5, 80, 100], [5, 500, 500]))
+        popt_in  = popt
+        popt_out = popt
+
+    # POPT Values:
+    # -----------
+    # popt[0] = Phase , popt[1] = CenterOffset, popt[2] = ForkLength
+
+    param = popt_in
+    print(param)
+
+    theorical_laser_position_mean = utils.theoretical_laser_position(occlusion_position_mean_IN,popt_in[0], popt_in[1], popt_in[2])
+
+    theoretical_laser_position_IN = utils.theoretical_laser_position(occlusion_position_IN, popt_in[0], popt_in[1], popt_in[2])
+    theoretical_laser_position_OUT = utils.theoretical_laser_position(occlusion_position_OUT, popt_out[0], popt_out[1], popt_out[2])
+
+
+
+    #off2 = [int(positions_for_analysis[0] / 100 * laser_position.size),
+    #        int(positions_for_analysis[1] / 100 * laser_position.size)]
+
+    #laser_position = laser_position[off2[0]:off2[1]]
+    #theoretical_laser_position = theoretical_laser_position[off2[0]:off2[1]]
+    #occlusion_position = occlusion_position[off2[0]:off2[1]]
+
+    residuals_IN = laser_position_IN - theoretical_laser_position_IN
+    residuals_OUT = laser_position_OUT - theoretical_laser_position_OUT
+
+    unique_residuals_in = []
+    unique_residuals_out = []
+
+    for laser_pos in unique_laser_position:
+        unique_residuals_in.append(np.mean(residuals_IN[np.where(laser_position_IN == laser_pos)]))
+        unique_residuals_out.append(np.mean(residuals_OUT[np.where(laser_position_OUT == laser_pos)]))
+
+    unique_residuals_in = np.asarray(unique_residuals_in)
+    unique_residuals_out = np.asarray(unique_residuals_out)
+
+    unique_residuals_in = np.convolve(unique_residuals_in, np.ones((N,))/N, mode='valid')
+    unique_residuals_out = np.convolve(unique_residuals_out, np.ones((N,))/N, mode='valid')
+
+    UniqueLPIN = UniqueLPIN[np.int(N/2-1):np.int(UniqueLPIN.size-N/2)]
+
+    if remove_sytematics is True:
+        for laser_pos in UniqueLPIN:
+            residuals_IN[np.where(laser_position_IN==laser_pos)] = residuals_IN[np.where(laser_position_IN==laser_pos)] - unique_residuals_in[np.where(UniqueLPIN==laser_pos)] #np.mean(residuals_IN[np.where(laser_position_IN==laser_pos)])
+            residuals_OUT[np.where(laser_position_OUT==laser_pos)] = residuals_OUT[np.where(laser_position_OUT==laser_pos)] - unique_residuals_out[np.where(UniqueLPIN==laser_pos)]#np.mean(residuals_OUT[np.where(laser_position_OUT==laser_pos)])
+
+    #residuals_IN = residuals_IN[np.where(laser_position_IN==UniqueLPIN)]
+    #residuals_OUT = residuals_OUT[np.where(laser_position_OUT==UniqueLPIN)]
+
+    #laser_position_IN_s = laser_position_IN[np.where(laser_position_IN==UniqueLPIN)]
+    #laser_position_OUT_s = laser_position_OUT[np.where(laser_position_OUT==UniqueLPIN)]
+
+    if complete_residuals_curve is True:
+        d = 3
+    else:
+        d = 2
+
+    if separate is True:
+        fig = plt.figure(figsize=(8, 6))
+        prairie.use()
+        gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1])
+        ax3 = fig.add_subplot(gs[0])
+        ax2 = fig.add_subplot(gs[1])
+    else:
+        fig = plt.figure(figsize=(8, 6))
+        prairie.use()
+        ax2 = plt.subplot2grid((d, 2), (1, 1))
+        ax3 = plt.subplot2grid((d, 2), (1, 0))
+        ax1 = plt.subplot2grid((d, 2), (0, 0), colspan=2)
+
+    #residuals_IN  = residuals_IN[off2[0]:off2[1]]
+    #residuals_OUT = residuals_OUT[off2[0]:off2[1]]
+
+    make_histogram(1e3*residuals_IN, [-200, 200], '\u03BCm', axe=ax2, color=colorIN)
+    make_histogram(1e3*residuals_OUT, [-200, 200], '\u03BCm', axe=ax2, color=colorOUT)
+    ax2.set_title('Wire position error histogram', loc='left')
+    ax2.set_xlabel('Wire position error (\u03BCm)')
+    ax2.set_ylabel('Occurrence')
+    prairie.style(ax2)
+
+
+    ax3.plot(laser_position_IN, 1e3*residuals_IN, '.', color=colorIN, markersize=1.5)
+    #ax3.plot(UniqueLPIN,1e3*unique_residuals_in, color=colorIN)
+    ax3.plot(laser_position_OUT, 1e3*residuals_OUT, '.', color=colorOUT, markersize=1.5)
+    #ax3.plot(UniqueLPIN,1e3*unique_residuals_out, color=colorOUT)
+
+    ax3.set_ylim([-200, 200])
+    ax3.set_title('Wire position error', loc='left')
+    ax3.set_ylabel('Wire position error (\u03BCm)')
+    ax3.set_xlabel('Laser position (mm)')
+    prairie.style(ax3)
+
+    plt.tight_layout()
+
+    if separate is True:
+
+        if save is True:
+            plt.show(block=False)
+
+            if saving_name is not None:
+                plt.savefig(saving_name + '_calibration_residuals.png', format='png', dpi=DPI)
+            else:
+                print('saving_name is None - Figure not saved')
+        else:
+            plt.show(block=True)
+
+        fig.clear()
+
+    equation = "{:3.2f}".format(param[1]) + '-' + "{:3.2f}".format(param[2]) + '*' + 'cos(\u03C0-x+' + "{:3.2f}".format(
+        param[0]) + ')'
+    legend = 'Theoretical Wire position: ' + equation
+
+    if separate is True:
+        fig = plt.figure(figsize=(8, 2.5))
+        ax1 = fig.add_subplot(111)
+        prairie.use()
+
+    ax1.plot(occlusion_position_mean_IN, theorical_laser_position_mean, linewidth=0.5, color='black')
+    ax1.plot(occlusion_position_IN, laser_position_IN, '.', color=colorIN, markersize=4)
+    ax1.plot(occlusion_position_OUT, laser_position_OUT, '.', color=colorOUT, markersize=4)
+
+    ax1.legend([legend, 'Data IN', 'Data OUT'])
+    ax1.set_title('[' + folder_name.split('\\')[::-1][0] + '  IN + OUT ] Theoretical wire positions vs. measured positions', loc='left')
+    ax1.set_xlabel('Angular position at laser crossing (rad)')
+    ax1.set_ylabel('Laser position (mm)')
+    prairie.style(ax1)
+
+    if complete_residuals_curve is True:
+
+        ax4 = plt.subplot2grid((d, 2), (2, 0), colspan=2)
+        ax4.plot(scan_number_IN, 1e3*residuals_IN, '.', color=colorIN, markersize=1.5)
+        ax4.plot(scan_number_OUT, 1e3*residuals_OUT,'.', color=colorOUT,markersize=1.5)
+        ax4.set_title('Wire position error over scans', loc='left')
+        ax4.set_ylabel('Wire position error (\u03BCm)')
+        ax4.set_xlabel('Scan #')
+        prairie.style(ax4)
+
+    plt.tight_layout()
+
+    if save is True:
+        plt.show(block=False)
+
+        if saving_name is not None:
+            if separate is True:
+                plt.savefig(saving_name + '_calibration_curve.png', format='png', dpi=DPI)
+            else:
+                plt.savefig(saving_name + '_calibration.png', format='png', dpi=DPI)
+        else:
+            print('saving_name is None - Figure not saved')
+    else:
+        plt.show(block=True)
+
+
 def plot_all_eccentricity(folder_name, in_or_out, howmuch='all', diagnostic=False, save=False, saving_name=None, separate=False):
     """
           Plot all the eccenticity curve extracted form the OPS processing to see if any jump occured
@@ -305,6 +550,11 @@ def plot_all_eccentricity(folder_name, in_or_out, howmuch='all', diagnostic=Fals
     data = sio.loadmat(folder_name + '/' + filename, struct_as_record=False, squeeze_me=True)
     eccentricity = data['eccentricity']
     angular_position_SA = data['angular_position_SA']
+
+    values = range(len(eccentricity)+1)
+    jet = cm = plt.get_cmap('jet')
+    cNorm = colors.Normalize(vmin=0, vmax=values[-1])
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
 
     if diagnostic == True or diagnostic == 1:
         laser_position = data['laser_position']
@@ -345,12 +595,14 @@ def plot_all_eccentricity(folder_name, in_or_out, howmuch='all', diagnostic=Fals
             ax3 = plt.subplot2grid((2, 2), (1, 0))
             ax1 = plt.subplot2grid((2, 2), (0, 0), colspan=2)
 
-        ax1.plot(ref_pos, theor_ecc(ref_pos, popt[0], popt[1], popt[2]), linewidth=0.5, color='black')
-
+        ax1.plot(ref_pos, 1e3*theor_ecc(ref_pos, popt[0], popt[1], popt[2]), linewidth=0.5, color='black')
+        cnt = 1
         for ecc, pos in zip(eccentricity, angular_position_SA):
+            colorVal = scalarMap.to_rgba(values[cnt])
             ecc = ecc[off:ecc.size - off]
             pos = pos[off:pos.size - off]
-            ax1.plot(pos, ecc, linewidth=0.8, color=color)
+            ax1.plot(pos, 1e3*ecc, linewidth=0.8, color=colorVal)
+            cnt = cnt + 1
 
         if diagnostic == True or diagnostic == 1:
 
@@ -363,7 +615,7 @@ def plot_all_eccentricity(folder_name, in_or_out, howmuch='all', diagnostic=Fals
 
         ax1.set_title('Position error and eccentricity compensation - Sensor A', loc='left')
         ax1.set_xlabel('Angular position (rad)')
-        ax1.set_ylabel('Position error (rad)')
+        ax1.set_ylabel('Position error (mrad)')
         ax1.legend(['Eccentricity global fit', 'Eccentricity profiles (' + str(eccentricity.size) + ')'])
         prairie.style(ax1)
 
@@ -388,13 +640,15 @@ def plot_all_eccentricity(folder_name, in_or_out, howmuch='all', diagnostic=Fals
             gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1])
             ax2 = fig.add_subplot(gs[0])
             ax3 = fig.add_subplot(gs[1])
-
+        cnt = 1
         for ecc, pos in zip(eccentricity, angular_position_SA):
+            colorVal = scalarMap.to_rgba(values[cnt])
             ecc = ecc[off:ecc.size - off]
             pos = pos[off:pos.size - off]
             residuals = ecc - theor_ecc(pos, popt[0], popt[1], popt[2])
-            ax2.plot(pos, 1e6*residuals, linewidth=0.2, color=color)
+            ax2.plot(pos, 1e6*residuals, linewidth=0.2, color=colorVal)
             residuals_mean.append(np.mean(residuals))
+            cnt = cnt + 1
 
         ax2.set_title('Position error after compensation', loc='left')
         ax2.set_xlabel('Angular position (rad)')
@@ -479,7 +733,12 @@ def plot_all_speed(folder_name, in_or_out, save=False, saving_name=None, separat
     R_speed = []
     M_speed = ref_speed
 
-    offset = 100
+    offset = 10
+
+    values = range(len(speed_SA)+1)
+    jet = cm = plt.get_cmap('jet')
+    cNorm = colors.Normalize(vmin=0, vmax=values[-1])
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
 
     for speed, time in zip(speed_SA, time_SA):
         speed = speed[offset:(speed.size-offset)]
@@ -489,18 +748,23 @@ def plot_all_speed(folder_name, in_or_out, save=False, saving_name=None, separat
         M_speed /= 2
 
     ax1.plot(ref_time[0:M_speed.size], M_speed, 'k', linewidth=0.5)
-
+    cnt = 1
+    N = 8
     for speed, time in zip(speed_SA, time_SA):
+        colorVal = scalarMap.to_rgba(values[cnt])
         speed = speed[offset:(speed.size-offset)]
+        speed_s = np.convolve(speed,np.ones((N,))/N, mode='valid')
         time = time[offset:(time.size - offset - 1)]
         r_speed = utils.resample(np.array([time, speed]), np.array([ref_time, ref_speed]))
-        ax1.plot(time, speed, linewidth=0.5, color=color)
+        ax1.plot(time[np.int(N/2):time.size-np.int(N/2)+1], speed_s, linewidth=0.5, color=colorVal)
         R_speed.append(np.mean((r_speed[1][0:M_speed.size] - M_speed)[200:M_speed.size-offset-20]))
+        cnt = cnt + 1
 
     ax1.set_title('Speed profiles', loc='left')
     ax1.set_ylabel('Speed (rad/s)')
     ax1.set_xlabel('Time (s)')
     ax1.legend(['Mean speed', 'Speed profiles (' + str(speed_SA.size) + ')'])
+    ax1.set_ylim([0, 150])
     prairie.style(ax1)
 
     plt.tight_layout()
@@ -587,7 +851,7 @@ def plot_RDS(folder_name, in_or_out, offset=0, index=None):
     rdcp = eval(config.get('OPS processing parameters', 'relative_distance_correction_prameters'))
 
     fig = plt.figure()
-    prairie.use()()()
+    #prairie.use()()()
     ax = fig.add_subplot(111)
     plt.axhspan(rdcp[1], rdcp[0], color='black', alpha=0.1)
 
@@ -630,17 +894,23 @@ def plot_all_positions(folder_name, in_or_out, save=False, saving_name=None):
 
     if in_or_out is 'IN':
         filename = 'PROCESSED_IN.mat'
-        color = '#018BCF'
     elif in_or_out is 'OUT':
         filename = 'PROCESSED_OUT.mat'
-        color = '#0EA318'
 
     data = sio.loadmat(folder_name + '/' + filename, struct_as_record=False, squeeze_me=True)
     angular_position_SA = data['angular_position_SA']
     time_SA = data['time_SA']
 
+    values = range(len(angular_position_SA)+1)
+    jet = cm = plt.get_cmap('jet')
+    cNorm = colors.Normalize(vmin=0, vmax=values[-1])
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+
+    cnt = 1
     for pos, time in zip(angular_position_SA, time_SA):
-        ax1.plot(time[2:time.size - 2], pos[2:pos.size - 2], linewidth=0.5, color=color)
+        colorVal = scalarMap.to_rgba(values[cnt])
+        ax1.plot(time[2:time.size - 2], pos[2:pos.size - 2], linewidth=0.5,color=colorVal)
+        cnt = cnt + 1
 
     ax1.set_title('Motor angular positions', loc='left')
     ax1.set_ylabel('Position (rad)')
@@ -659,9 +929,137 @@ def plot_all_positions(folder_name, in_or_out, save=False, saving_name=None):
             print('saving_name is None - Figure not saved')
     else:
         plt.show(block=True)
-    
+
+
+def plot_all_referencedetections(folder_name, in_or_out,timems=20):
+
+    fig = plt.figure(figsize=(8, 2.5))
+    prairie.use()
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+
+    if in_or_out is 'IN':
+        filename = 'PROCESSED_IN.mat'
+    elif in_or_out is 'OUT':
+        filename = 'PROCESSED_OUT.mat'
+
+    data = sio.loadmat(folder_name + '/' + filename, struct_as_record=False, squeeze_me=True)
+    angular_position_SA = data['angular_position_SA']
+    time_SA = data['time_SA']
+    angular_position_SB = data['angular_position_SB']
+    time_SB = data['time_SB']
+    laser_position = data['laser_position']
+    occlusion_position = data['occlusion_position']
+    scan_number = data['scan_number']
+
+    time_refA  = []
+    laser_posA = []
+    scan_numA  = []
+    pos_at_timeA = []
+
+    time_refB  = []
+    laser_posB = []
+    scan_numB  = []
+    pos_at_timeB = []
+
+    for i in range(0, angular_position_SA.size):
+        time_refA.append(time_SA[i][np.where(angular_position_SA[i] > 0)[0][0]])
+        pos_at_timeA.append(angular_position_SA[i][(np.where(time_SA[i] > timems / 1000)[0][0])])
+        laser_posA.append(laser_position[i])
+        scan_numA.append(scan_number[i])
+
+    for i in range(0, angular_position_SB.size):
+        time_refB.append(time_SB[i][np.where(angular_position_SB[i] > 0)[0][0]])
+        pos_at_timeB.append(angular_position_SB[i][(np.where(time_SB[i] > timems / 1000)[0][0])])
+        laser_posB.append(laser_position[i])
+        scan_numB.append(scan_number[i])
+
+    #total_scan_num = []
+    #for i in range(0,laser_pos.size):
+    #    total_scan_num.append( last + scan_num[np.where(laser_position)])
+
+    time_refA = np.asarray(time_refA) * 1e3
+    time_refB = np.asarray(time_refB) * 1e3
+
+    ax1.plot(np.asarray(pos_at_timeA)* 360 / (2 * np.pi), 'ob')
+    ax1.plot(np.asarray(pos_at_timeB)* 360 / (2 * np.pi), 'or')
+    ax1.set_title('Position at a given time' + in_or_out + ' ' + str(timems) + 'ms', loc='left')
+    ax1.set_ylabel('Angular Position (deg)')
+    ax1.set_xlabel('Scan Number')
+    #ax1.set_ylim(ylimits)
+
+    #make_histogram(time_ref,ylimits, 'ms', axe=ax2, color='b')
+    #ax2.set_title('Histogramming', loc='left')
+    #ax2.set_xlabel('Time (ms)')
+    #ax2.set_ylabel('Norm. Counts')
+
+
+    #prairie.style(ax1)
+
+
+
+    #fig = plt.figure(figsize=(8, 8))
+    #fig.suptitle('Angular Position on Laser Crossing Vs Scan Number', fontsize=14, fontweight='bold')
+    #ax2 = fig.add_subplot(111)
+    if in_or_out is 'OUT':
+        occlusion_position = np.pi/2 - occlusion_position
+
+    ax2.plot(occlusion_position * 360 / (2 * np.pi), 'ob')
+    #ax2.set_ylim([69,78])
+    ax2.set_title('Angular position on Laser Crosing', loc='left')
+    ax2.set_ylabel('Angular Position (deg)')
+    ax2.set_xlabel('Scan Number')
+
+    plt.tight_layout()
+    plt.show(block=True)
 
 # Raw data analysis (TDMS)  ------------------------------------------------------------------------
+
+
+def plot_rawdata_from_tdms(file):
+
+    """
+    Just plots data from a TDMS File
+    """
+
+    file = utils.reformate_path(file)
+
+    parameter_file = utils.resource_path('data/parameters.cfg')
+    config = configparser.RawConfigParser()
+    config.read(parameter_file)
+    sampling_frequency = eval(config.get('OPS processing parameters', 'sampling_frequency'))
+    start_time_out = int(sampling_frequency * 0.020)
+    print(start_time_out)
+
+    tdms_file = TdmsFile(file)
+    data__s_a__in = tdms_file.object('Picoscope Data', 'DISC PH. HOME dir IN').data
+    data__s_b__in = tdms_file.object('Picoscope Data', 'DISC PH. IN dir IN').data
+    data__p_d__in = np.abs(-tdms_file.object('Picoscope Data', 'WIRE PH. dir IN').data)
+    data__s_a__out = tdms_file.object('Picoscope Data', 'DISC PH. HOME dir HOME').data[start_time_out::]
+    data__s_b__out = tdms_file.object('Picoscope Data', 'DISC PH. IN dir HOME').data[start_time_out::]
+    data__p_d__out = np.abs(-tdms_file.object('Picoscope Data', 'WIRE PH. dir HOME').data)[start_time_out::]
+
+    timein  = np.arange(data__s_a__in.size) / sampling_frequency
+    timeout  = np.arange(data__s_a__out.size) / sampling_frequency
+
+    plt.figure()
+
+    plt.subplot(321)
+    plt.plot(timein,data__s_a__in)
+    plt.subplot(322)
+    plt.plot(timeout, data__s_a__out)
+
+    plt.subplot(323)
+    plt.plot(timein,data__s_b__in)
+    plt.subplot(324)
+    plt.plot(timeout, data__s_b__out)
+
+    plt.subplot(325)
+    plt.plot(timein,data__p_d__in)
+    plt.subplot(326)
+    plt.plot(timeout, data__p_d__out)
+
+    plt.show()
 
 
 def make_one_plot_analysis_from_tdms(INorOUT, datarange, data_SA, data_SB, data_PD, subplot, title, showplot):
@@ -879,8 +1277,8 @@ def plot_analysis_from_tdms_2(file, show_plot=False):
     parameter_file = utils.resource_path('data/parameters.cfg')
     config = configparser.RawConfigParser()
     config.read(parameter_file)
-    range_55rs = eval(config.get('OPS processing parameters', 'range_55rs'))
-    range_133rs = eval(config.get('OPS processing parameters', 'range_133rs'))
+    #range_55rs = eval(config.get('OPS processing parameters', 'range_55rs'))
+    #range_133rs = eval(config.get('OPS processing parameters', 'range_133rs'))
     sampling_frequency = eval(config.get('OPS processing parameters', 'sampling_frequency'))
     start_time_out = int(sampling_frequency * 0.020)
     print(start_time_out)
