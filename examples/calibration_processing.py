@@ -24,9 +24,9 @@
 
 from lib import ops_processing as ops
 
-TDMS_folders = ["E:\BWS_Fatigue_Tests\Calibration_Bench_Files\\133rs_CC__2017_06_08__09_57"]
+TDMS_folders = ["G:\Projects\BWS_Calibrations\Calibrations\PS_BWS_SN128\RawData\S128__2017_11_27__16_26"]
 
-destination_folder = "E:\BWS_Fatigue_Tests\Calibration_Bench_Files"
+destination_folder = "G:\Projects\BWS_Calibrations\Calibrations\PS_BWS_SN128\ProcesedData"
 
 # Single/Multiple calibration processing
 for TDMS_folder in TDMS_folders:

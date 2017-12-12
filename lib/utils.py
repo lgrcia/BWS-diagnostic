@@ -25,6 +25,7 @@
 
 
 import os
+import glob
 import sys
 import time
 import shutil
@@ -148,6 +149,23 @@ def open_mat(matfile):
 
     return arrays
 
+def tdms_list_from_folder_sorted(TDMS_folder):
+    newname = TDMS_folder.split('file:///', 2)
+
+    if len(newname) == 2:
+        TDMS_folder = TDMS_folder.split('file:///', 2)[1]
+
+    if not os.path.exists(TDMS_folder):
+        return -1
+
+    tdms_files = glob.glob(TDMS_folder + '/*.tdms')
+    tdms_files.sort(key=os.path.getmtime)
+
+    if len(tdms_files) < 1:
+        tdms_files =  -1
+
+    return tdms_files
+
 
 def tdms_list_from_folder(TDMS_folder):
     newname = TDMS_folder.split('file:///', 2)
@@ -170,8 +188,20 @@ def tdms_list_from_folder(TDMS_folder):
         dir_path = -1
 
         return -1
-
+    print()
     return tdms_files, dir_path
+
+
+def mat_list_from_folder_sorted(mat_folder):
+    new_name = mat_folder.split('file:///', 2)
+
+    if len(new_name) == 2:
+        mat_folder = mat_folder.split('file:///', 2)[1]
+
+    mat_files = glob.glob(mat_folder + '/*.mat')
+    mat_files.sort(key=os.path.getmtime)
+
+    return mat_files
 
 
 def mat_list_from_folder(mat_folder):
@@ -246,7 +276,8 @@ class CreateRawDataFolder(QtCore.QThread):
 
         false = 0
 
-        tdms_files, dir_path = tdms_list_from_folder(self.TDMS_folder)
+        #tdms_files, dir_path = tdms_list_from_folder(self.TDMS_folder)
+        tdms_files = tdms_list_from_folder_sorted(self.TDMS_folder)
 
         # log.log_new_raw_data_extraction(self.TDMS_folder, speed)
 
@@ -260,7 +291,8 @@ class CreateRawDataFolder(QtCore.QThread):
             time.sleep(0.1)
 
             # We take only file that are well saved - parameter to be found in config file
-            if os.path.getsize(dir_path + '/' + tdms_file) >= tdms_minimum_size:
+            #if os.path.getsize(dir_path + '/' + tdms_file) >= tdms_minimum_size:
+            if os.path.getsize(tdms_file) >= tdms_minimum_size:
 
                 if fatigue_test == 'yes':
                     laser_position = offset_center
@@ -272,7 +304,9 @@ class CreateRawDataFolder(QtCore.QThread):
                         laser_position = offset_center
                         scan_number = int(eval(tdms_file.split('__', 2)[1]))
 
-                data__s_a_in, data__s_b_in, data__s_a_out, data__s_b_out, data__p_d_in, data__p_d_out, time__in, time__out = utils.extract_from_tdms(dir_path + '/' + tdms_file)
+                #data__s_a_in, data__s_b_in, data__s_a_out, data__s_b_out, data__p_d_in, data__p_d_out, time__in, time__out = utils.extract_from_tdms(dir_path + '/' + tdms_file)
+                data__s_a_in, data__s_b_in, data__s_a_out, data__s_b_out, data__p_d_in, data__p_d_out, time__in, time__out = utils.extract_from_tdms(tdms_file)
+
 
                 if type(data__s_a_in) is not int:
 
@@ -307,7 +341,7 @@ def resample(data_B, data_A):
     and return resampled_data_B([timeA][resampleddataB]))
     """
     data_SB_interp = interp1d(data_B[0], data_B[1], bounds_error=False, fill_value=0)
-    data_B_R = np.ones((2, data_A[0].size));
+    data_B_R = np.ones((2, data_A[0].size))
     data_B_R[1] = data_SB_interp(data_A[0])
     data_B_R[0] = np.copy(data_A[0])
 
