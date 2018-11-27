@@ -1,6 +1,6 @@
 # BWS-diagnostic<img src="images/cern_logo_2.jpg" width="100" align=right>
 
-**BWS-diagnostic** is a framework to asses, monitor and diagnose the new generation of rotational BWS developped at **CERN** inside the **BE-BI-PM** section.
+**BWS-diagnostic** is a framework to assess, monitor and diagnose the new generation of rotational BWS developped at **CERN** inside the **BE-BI-PM** section.
 
 It has been written in **Python** and is available both as a **library** and used in an **expert GUI**.
 
