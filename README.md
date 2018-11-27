@@ -11,7 +11,7 @@ For more info go to the [complete documentation (GitHub wiki)](https://github.co
 <img src="images/BWS_application_illustration.jpg" width="800" align=center>
 
 ##### External references:
-- [Performance assesment of pre-series Beam Wire Scanner prototypes for the LHC injectors upgrade, *Master Thesis*](https://cds.cern.ch/record/2305977/files/CERN-THESIS-2017-320.pdf)
+- [Performance assessment of pre-series Beam Wire Scanner prototypes for the LHC injectors upgrade, *Master Thesis*](https://cds.cern.ch/record/2305977/files/CERN-THESIS-2017-320.pdf)
 - [Performance Assessment of Pre-Series Fast Beam Wire Scanner Prototypes for the Upgrade of the CERN LHC Injector Complex, *IBIC 2017*](http://accelconf.web.cern.ch/AccelConf/ibic2017/papers/wepcc03.pdf)
 
 
